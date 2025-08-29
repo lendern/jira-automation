@@ -37,10 +37,10 @@ class LVL2feature(OvhIssue):
             jira: Jira client instance.
             key: Issue key of the LVL2 New Feature.
         """
-    OvhIssue.__init__(self, jira, issue=issue, key=key)
-    assert self.type == 'New Feature'
-    self.get_fields()
-    self.get_childs()
+        OvhIssue.__init__(self, jira, issue=issue, key=key)
+        assert self.type == 'New Feature'
+        self.get_fields()
+        self.get_childs()
     
     def get_fields(self):
         """
@@ -61,7 +61,7 @@ class LVL2feature(OvhIssue):
                                     "Parent Link" = {self.key} AND \
                                     type in (Epic, Story, Task) AND \
                                     (Component = "Network" OR labels = "Openstack_Networking")', maxResults=False)
-    self.childs = [issue.key for issue in issues]
+        self.childs = [issue.key for issue in issues]
 
     def __str__(self):
         """
@@ -89,10 +89,10 @@ class LVL2epic(OvhIssue):
         """
         Initialize LVL2epic and populate fields and children.
         """
-    OvhIssue.__init__(self, jira, issue=issue, key=key)
-    assert self.type == 'Epic LPM'
-    self.get_fields()
-    self.get_childs()
+        OvhIssue.__init__(self, jira, issue=issue, key=key)
+        assert self.type == 'Epic LPM'
+        self.get_fields()
+        self.get_childs()
     
     def get_fields(self):
         """Populate LVL2 epic specific fields (example: customfield_10530 -> blfnt)."""

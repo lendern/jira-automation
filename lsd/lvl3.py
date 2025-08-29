@@ -40,10 +40,10 @@ class PCIEpic(OvhIssue):
             jira: Jira client instance.
             key: Issue key of the Epic.
         """
-    OvhIssue.__init__(self, jira, issue=issue, key=key)
-    assert self.type == 'Epic'
-    self.get_fields()
-    self.get_childs()
+        OvhIssue.__init__(self, jira, issue=issue, key=key)
+        assert self.type == 'Epic'
+        self.get_fields()
+        self.get_childs()
 
     def __str__(self):
         """

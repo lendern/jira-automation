@@ -79,6 +79,7 @@ if __name__ == '__main__':
     parser.add_argument("--find-orphans", help="find LVL3 which are not in tree of LSD in quarter", action='store_true')
     parser.add_argument("--dry-run", help="do not perform remote updates, only simulate", action='store_true')
     parser.add_argument("--verbose", help="enable verbose/debug logging", action='store_true')
+    parser.add_argument("--update-estimate", help="sum story points of child stories/tasks and update PCI Epics", action='store_true')
     args = parser.parse_args()
 
     valid_year(args.year)
@@ -102,6 +103,8 @@ if __name__ == '__main__':
         lsd.propagate_sprint()
     if args.set_prio:
         lsd.propagate_prio()
+    if args.update_estimate:
+        lsd.update_estimates()
     if args.find_orphans:
         lsd.find_orphans()
 

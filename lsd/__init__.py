@@ -13,6 +13,7 @@ from .lvl3 import PCIEpic, PCITaskStory, str_lvl3_sprint_label
 logger = logging.getLogger(__name__)
 
 VALID_SPRINTS = ['SD-FY26-Q1', 'SD-FY26-Q2', 'SD-FY26-Q3', 'SD-FY26-Q4']
+EPIC_STORYPOINTS_FIELD = 'customfield_10002'
 
 # ---------------------------------------------------------------------
 # JQL query 
@@ -249,5 +250,33 @@ class LSD:
                 proj, type = issue_to_project_type(issue)
                 ovhissue = init_ovhissue(self._jira, issue, proj, type, dry_run=self.dry_run)                
                 logger.info('(-) orphan %s found: *%s*', label, str(ovhissue))
+
+    def update_estimates(self):
+        """
+        For each PCI Epic in the tree, sum estimates from child Stories/Tasks
+        and set the Epic's story points field to that sum.
+        """
+        logger.info('Now updating Epic story points from child estimates')
+        for node in self.tree:
+            epic = node.data
+            if epic.project == 'PCI' and epic.type == 'Epic':
+                total = 0
+                for child in node:
+                    try:
+                        # child.data may be PCITaskStory with attribute estimate
+                        est = getattr(child.data, 'estimate', 0)
+                        total += int(est)
+                    except Exception:
+                        logger.debug('Skipping child without estimate: %s', getattr(child.data, 'key', 'unknown'))
+                logger.info('Epic %s: computed story points = %s', epic.key, total)
+                if self.dry_run:
+                    logger.info('[dry-run] would set %s=%s on %s', EPIC_STORYPOINTS_FIELD, total, epic.key)
+                else:
+                    try:
+                        issue = self._jira.issue(epic.key)
+                        issue.update(fields={EPIC_STORYPOINTS_FIELD: total})
+                        logger.info('(+) set %s=%s on %s', EPIC_STORYPOINTS_FIELD, total, epic.key)
+                    except Exception as e:
+                        logger.error('Failed to update epic %s: %s', epic.key, e)
 
 
