@@ -1,3 +1,20 @@
+"""
+jira-for-pci.py
+
+Command-line helper to operate on Jira issues for PCI-related automation.
+
+This module:
+- Parses CLI arguments (fiscal year, quarter, squad and operation flags).
+- Validates year and quarter against supported values.
+- Instantiates a JIRA client and an LSD helper (project-specific wrapper).
+- Optionally triggers operations on the LSD object: propagate quarter label,
+  propagate priorities, or find orphan LVL3 items.
+
+Usage example:
+    python jira-for-pci.py 26 1 Network --set-quarter
+
+Note: This script expects JIRA_TOKEN in the environment.
+"""
 import os
 from jira import JIRA
 from lsd import LSD
@@ -12,14 +29,40 @@ LVL2_to_exclude = []
 
 
 def valid_year(s_year):
+    """
+    Validate the provided fiscal year.
+
+    Args:
+        s_year (str): Fiscal year string as provided on the CLI (e.g. '26').
+
+    Side effects:
+        Exits the process with code 0 after printing a message if the year
+        is not in SUPPORTED_FY.
+
+    Rationale:
+        Keep validation strict and explicit to avoid accidental operations
+        on unsupported fiscal years.
+    """
     if s_year not in SUPPORTED_FY:
         print(f'Requested FY is {s_year}, expecting {SUPPORTED_FY}, exit')
         exit(0)
 
+
 def valid_quarter(s_quarter):
+    """
+    Validate the provided quarter.
+
+    Args:
+        s_quarter (str): Quarter string as provided on the CLI ('1'..'4').
+
+    Side effects:
+        Exits the process with code 0 after printing a message if the quarter
+        is not in SUPPORTED_QUARTER.
+    """
     if s_quarter not in SUPPORTED_QUARTER:
         print(f'Requested Quarter is {s_quarter}, expecting {SUPPORTED_QUARTER}, exit')
         exit(0)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
