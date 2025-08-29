@@ -7,6 +7,11 @@ Contains a lightweight OvhIssue wrapper that exposes frequently used fields
 and helper methods to interact with the underlying jira-python issue object.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class OvhIssue:
     """
     Generic wrapper around a Jira issue used by the LSD tooling.
@@ -29,7 +34,7 @@ class OvhIssue:
         prio (str): Priority name.
     """
     # Common to all types (Epics, Story, etc)
-    def __init__(self, jira, issue=None, key=None):
+    def __init__(self, jira, issue=None, key=None, dry_run=False):
         """
         Initialize the OvhIssue wrapper.
 
@@ -45,9 +50,12 @@ class OvhIssue:
         elif key:
             self._issue = jira.issue(key)
         self.childs = []
+        # honor dry-run mode to avoid remote updates
+        self.dry_run = dry_run
 
         # primary fields
-        self.id = id
+        # store the underlying issue id (not the builtin id)
+        self.id = getattr(self._issue, 'id', None)
         self.key = self._issue.key
 
         # secondary fields
@@ -57,7 +65,7 @@ class OvhIssue:
         self.title = _fields.summary
         self.labels = _fields.labels
         self.status = _fields.status.name
-        self.prio = _fields.priority.name        
+        self.prio = _fields.priority.name
 
 
     def __str__(self):
@@ -87,9 +95,17 @@ class OvhIssue:
             - Prints a short message indicating whether the label was added or skipped.
         """
         if s_new_label not in self.labels:
-            print(f'(+) add label *{s_new_label}* to *{str(self)}*')
+            logger.info('(+) add label *%s* to *%s*', s_new_label, str(self))
             self.labels.append(s_new_label)
-            _issue = self._jira.issue(self.key)
-            _issue.update(fields={"labels": self.labels})
+            if self.dry_run:
+                logger.info('[dry-run] would update labels for %s: %s', self.key, self.labels)
+                return
+            # update the already-fetched underlying issue object when possible
+            try:
+                self._issue.update(fields={"labels": self.labels})
+            except Exception:
+                # fallback to refetching the issue if the stored object cannot be updated
+                _issue = self._jira.issue(self.key)
+                _issue.update(fields={"labels": self.labels})
         else:
-            print(f'(-) skip, label *{s_new_label}* already in *{str(self)}*')
+            logger.debug('(-) skip, label *%s* already in *%s*', s_new_label, str(self))

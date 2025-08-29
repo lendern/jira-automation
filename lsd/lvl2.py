@@ -6,7 +6,10 @@ Helpers and wrappers for LVL2 Jira issues (New Feature, Epic LPM).
 Includes sprint label formatting and LVL2-specific field extraction.
 """
 from colorama import Fore, Style
+import logging
 from lsd.base import OvhIssue
+
+logger = logging.getLogger(__name__)
 
 def str_lvl2_sprint_label(s_year, s_quarter):
     """Return the LVL2 sprint label (e.g. 'SD-FY26-Q1')."""
@@ -26,7 +29,7 @@ class LVL2feature(OvhIssue):
     JQL_NETWORK_CONTRIB_ONLY = '"Contributor(s) Squad(s) (Manual)" = "PU.pCI/Network"'
     JQL_NETWORK_ONLY = f'(({JQL_NETWORK_PRODUCT_ONLY}) OR ({JQL_NETWORK_CONTRIB_ONLY}))'
     
-    def __init__(self, jira, key):
+    def __init__(self, jira, issue=None, key=None):
         """
         Initialize a LVL2feature and populate fields and children.
 
@@ -34,10 +37,10 @@ class LVL2feature(OvhIssue):
             jira: Jira client instance.
             key: Issue key of the LVL2 New Feature.
         """
-        OvhIssue.__init__(self, jira, key=key)
-        assert self.type == 'New Feature'
-        self.get_fields()
-        self.get_childs()
+    OvhIssue.__init__(self, jira, issue=issue, key=key)
+    assert self.type == 'New Feature'
+    self.get_fields()
+    self.get_childs()
     
     def get_fields(self):
         """
@@ -58,7 +61,7 @@ class LVL2feature(OvhIssue):
                                     "Parent Link" = {self.key} AND \
                                     type in (Epic, Story, Task) AND \
                                     (Component = "Network" OR labels = "Openstack_Networking")', maxResults=False)
-        self.childs = [issue.key for issue in issues]
+    self.childs = [issue.key for issue in issues]
 
     def __str__(self):
         """
@@ -82,14 +85,14 @@ class LVL2epic(OvhIssue):
 
     Extracts Epic-specific LVL2 fields and lists child New Features.
     """
-    def __init__(self, jira, key):
+    def __init__(self, jira, issue=None, key=None):
         """
         Initialize LVL2epic and populate fields and children.
         """
-        OvhIssue.__init__(self, jira, key=key)
-        assert self.type == 'Epic LPM'
-        self.get_fields()
-        self.get_childs()
+    OvhIssue.__init__(self, jira, issue=issue, key=key)
+    assert self.type == 'Epic LPM'
+    self.get_fields()
+    self.get_childs()
     
     def get_fields(self):
         """Populate LVL2 epic specific fields (example: customfield_10530 -> blfnt)."""

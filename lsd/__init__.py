@@ -6,8 +6,11 @@ wrappers and build an in-memory tree representing LVL2 -> LVL3 relationships.
 """
 from nutree import Tree
 from colorama import Fore, Style
+import logging
 from .lvl2 import LVL2feature, LVL2epic, str_lvl2_sprint_label
 from .lvl3 import PCIEpic, PCITaskStory, str_lvl3_sprint_label
+
+logger = logging.getLogger(__name__)
 
 VALID_SPRINTS = ['SD-FY26-Q1', 'SD-FY26-Q2', 'SD-FY26-Q3', 'SD-FY26-Q4']
 
@@ -36,7 +39,7 @@ def _jql_build(s_root, l_filter_terms=[], b_not_closed = True):
     if b_not_closed:
         l_terms += JQL_NOT_CLOSED
     s_jql = ' AND '.join(l_terms) + ' ORDER BY priority DESC'
-    print(f'Running SQL: "{s_jql}"')
+    logger.debug('Running JQL: "%s"', s_jql)
     return s_jql
 
 def _jql_query_lvl2_keys(jira, l_filter_terms=[]):
@@ -46,7 +49,7 @@ def _jql_query_lvl2_keys(jira, l_filter_terms=[]):
                                 maxResults=False)
     return [issue.key for issue in issues]
 
-def _jql_query_pci_keys_for_squas(jira, s_squad, l_filter_terms=[]):
+def _jql_query_pci_keys_for_squad(jira, s_squad, l_filter_terms=[]):
     """Return PCI issue keys for a given squad and optional filters."""
     l_squad_filter = [f'Component = {s_squad}']
     issues = jira.search_issues(_jql_build(JQL_PCI_ROOT, l_filter_terms = l_squad_filter + l_filter_terms), 
@@ -73,7 +76,7 @@ def issue_to_project_type(issue):
     return (project, type)   
 
 
-def init_ovhissue(jira, issue, project: str, type: str):
+def init_ovhissue(jira, issue, project: str, type: str, dry_run: bool = False):
     """
     Instantiate the appropriate OvhIssue subclass for a given project/type.
 
@@ -83,20 +86,20 @@ def init_ovhissue(jira, issue, project: str, type: str):
     ovhissue = None
     if project == 'LVL2':
         if type == 'New Feature':
-            ovhissue = LVL2feature(jira, issue)
+            ovhissue = LVL2feature(jira, issue=issue, dry_run=dry_run)
         elif type == 'Epic LPM':
-            ovhissue = LVL2epic(jira, issue)
+            ovhissue = LVL2epic(jira, issue=issue, dry_run=dry_run)
     elif project == 'PCI':
         if type == 'Epic':
-            ovhissue = PCIEpic(jira, issue)
+            ovhissue = PCIEpic(jira, issue=issue, dry_run=dry_run)
         elif type in ('Story', 'Task'):
-            ovhissue = PCITaskStory(jira, issue) 
+            ovhissue = PCITaskStory(jira, issue=issue, dry_run=dry_run) 
     if not ovhissue:
-        print(f'({project},{type}) is not supported, skip')
+        logger.debug('(%s,%s) is not supported, skip', project, type)
     return ovhissue
 
 
-def reccursive_build_tree(jira, ancestor, key, s_squad):
+def recursive_build_tree(jira, ancestor, key, s_squad, dry_run=False):
     """
     Recursively build the in-memory tree of OvhIssue wrappers.
 
@@ -109,7 +112,7 @@ def reccursive_build_tree(jira, ancestor, key, s_squad):
     # 1. create Ovh Issue by key(type, summary, etc.)
     issue = jira.issue(key)
     proj, type = issue_to_project_type(issue)
-    ovhissue = init_ovhissue(jira, issue, proj, type)
+    ovhissue = init_ovhissue(jira, issue, proj, type, dry_run=dry_run)
     if type == 'Epic':
         if s_squad == 'Network' and not ovhissue.is_network():
             return
@@ -117,7 +120,7 @@ def reccursive_build_tree(jira, ancestor, key, s_squad):
         # 2. node = ancestor.add(OvhIssue)
         node = ancestor.add(ovhissue)
         for childkey in ovhissue.childs:
-            reccursive_build_tree(jira, node, childkey, s_squad)
+            recursive_build_tree(jira, node, childkey, s_squad, dry_run=dry_run)
 
 def is_sprint_valid(s_sprint):
     """
@@ -127,7 +130,7 @@ def is_sprint_valid(s_sprint):
         bool: True when sprint is in VALID_SPRINTS.
     """
     if s_sprint not in VALID_SPRINTS:
-        print(f'Expected sprint in *{VALID_SPRINTS}*, received *{s_sprint}*')
+        logger.warning('Expected sprint in *%s*, received *%s*', VALID_SPRINTS, s_sprint)
         return False
     else:
         return True
@@ -141,7 +144,8 @@ class LSD:
     in-memory tree representation (nutree.Tree).
     """
     PROJECT = 'LVL2'
-    def __init__(self, jira, s_year, s_quarter, s_squad):
+
+    def __init__(self, jira, s_year, s_quarter, s_squad, dry_run=False):
         """
         Create and populate the LSD tree for the requested sprint.
 
@@ -156,9 +160,12 @@ class LSD:
         self.quarter = s_quarter
         self.sprint = str_lvl2_sprint_label(s_year, s_quarter)
         self.s_squad = s_squad
-        print('==============================================================================')
-        print(f'Running LSD tree onto sprint = {self.sprint}')
-        print('==============================================================================')
+        self.dry_run = dry_run
+
+        logger.info('==============================================================================')
+        logger.info('Running LSD tree onto sprint = %s', self.sprint)
+        logger.info('==============================================================================')
+
         self.tree = Tree(LSD.PROJECT)
         self.build_tree()
 
@@ -171,7 +178,7 @@ class LSD:
             l_filter_terms += [LVL2feature.JQL_NETWORK_ONLY]
         l_new_features = _jql_query_lvl2_keys(self._jira, l_filter_terms = l_filter_terms)
         for key in l_new_features:
-            reccursive_build_tree(self._jira, self.tree, key, self.s_squad)
+            recursive_build_tree(self._jira, self.tree, key, self.s_squad, dry_run=self.dry_run)
 
     def __str__(self):
         """Return the formatted tree as string."""
@@ -179,7 +186,7 @@ class LSD:
 
     def to_ascii(self):
         """Print the formatted tree to stdout."""
-        print(self)
+        logger.info('\n%s', self)
     
     def propagate_sprint(self):
         """
@@ -188,13 +195,12 @@ class LSD:
         Only non-closed PCI issues of supported types will be labeled.
         """
         s_label = str_lvl3_sprint_label(self.year, self.quarter)
-        print(f'Will know propagate label {s_label} to tree for {self.s_squad}')
+        logger.info('Will know propagate label %s to tree for %s', s_label, self.s_squad)
         for node in self.tree:
             # Depth-first, pre-order by default
             ovhissue = node.data
-            if ovhissue.project == 'PCI' :
-                if ovhissue.type in ("Task", "Story", "Epic") and not ovhissue.is_closed():
-                    ovhissue.add_label(s_label)
+            if ovhissue.project == 'PCI' and ovhissue.type in ("Task", "Story", "Epic") and not ovhissue.is_closed():
+                ovhissue.add_label(s_label)
 
     def propagate_prio(self):
         """
@@ -202,23 +208,24 @@ class LSD:
 
         For each PCI Epic in the tree, set the same priority on non-closed child issues.
         """
-        print(f'Now, Will propagate priority, from Epics to Stories')
+        logger.info('Now, Will propagate priority, from Epics to Stories')
         # get all Epic keys
         for node in self.tree:
             ovhissue = node.data
             if ovhissue.project == 'PCI' and ovhissue.type == "Epic":
-                # on cherche les Epics LVL3
                 new_prio = ovhissue.prio
-                print(f'prio *{new_prio}* for Epic *{str(ovhissue)}*')
+                logger.info('prio *%s* for Epic *%s*', new_prio, str(ovhissue))
                 for task_or_story_node in node:
-                    # on cherche les Epics LVL3
                     if not task_or_story_node.data.is_closed():
                         _issue = self._jira.issue(task_or_story_node.data.key)
                         if task_or_story_node.data.prio != new_prio:
-                            _issue.update(fields={"priority": {"name": new_prio}})
-                            print(f'(+) set prio *{new_prio}* for *{task_or_story_node.data.type}* *{str(task_or_story_node.data)}*')
+                            if self.dry_run:
+                                logger.info('[dry-run] would set priority %s on %s', new_prio, task_or_story_node.data.key)
+                            else:
+                                _issue.update(fields={"priority": {"name": new_prio}})
+                                logger.info('(+) set prio *%s* for *%s* *%s*', new_prio, task_or_story_node.data.type, str(task_or_story_node.data))
                         else:
-                            print(f'(-) unchanged prio for *{task_or_story_node.data.type}* *{str(task_or_story_node.data)}*')                        
+                            logger.info('(-) unchanged prio for *%s* *%s*', task_or_story_node.data.type, str(task_or_story_node.data))
         
     def find_orphans(self):
         """
@@ -235,12 +242,12 @@ class LSD:
         
         # 2. find all LVL3 issues with appropriate quarter label
         label = str_lvl3_sprint_label(self.year, self.quarter)
-        l_candidates_key = _jql_query_pci_keys_for_squas(self._jira, self.s_squad ,l_filter_terms=[f'labels = "{label}"'])
+        l_candidates_key = _jql_query_pci_keys_for_squad(self._jira, self.s_squad ,l_filter_terms=[f'labels = "{label}"'])
         for key in l_candidates_key:
             if key not in l_issues_in_lsd:
                 issue = self._jira.issue(key)
                 proj, type = issue_to_project_type(issue)
-                ovhissue = init_ovhissue(self._jira, issue, proj, type)                
-                print(f'(-) orphan {label} found: *{str(ovhissue)}*')
+                ovhissue = init_ovhissue(self._jira, issue, proj, type, dry_run=self.dry_run)                
+                logger.info('(-) orphan %s found: *%s*', label, str(ovhissue))
 
 

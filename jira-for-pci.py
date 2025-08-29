@@ -16,12 +16,17 @@ Usage example:
 Note: This script expects JIRA_TOKEN in the environment.
 """
 import os
+import sys
+import logging
 from jira import JIRA
 from lsd import LSD
 import argparse
 
 JIRA_SERVER = 'https://jira.ovhcloud.tools'
-JIRA_TOKEN = os.environ['JIRA_TOKEN']
+JIRA_TOKEN = os.getenv('JIRA_TOKEN')
+if not JIRA_TOKEN:
+    print('Missing required environment variable JIRA_TOKEN')
+    sys.exit(1)
 SUPPORTED_FY = ['26']
 SUPPORTED_QUARTER = ['1', '2', '3', '4']
 
@@ -45,7 +50,7 @@ def valid_year(s_year):
     """
     if s_year not in SUPPORTED_FY:
         print(f'Requested FY is {s_year}, expecting {SUPPORTED_FY}, exit')
-        exit(0)
+        sys.exit(1)
 
 
 def valid_quarter(s_quarter):
@@ -61,7 +66,7 @@ def valid_quarter(s_quarter):
     """
     if s_quarter not in SUPPORTED_QUARTER:
         print(f'Requested Quarter is {s_quarter}, expecting {SUPPORTED_QUARTER}, exit')
-        exit(0)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
@@ -72,13 +77,25 @@ if __name__ == '__main__':
     parser.add_argument("--set-quarter", help="set quarter label in Epics and Tasks, based on LVL2", action='store_true')
     parser.add_argument("--set-prio", help="set quarter label in Epics and Tasks, based on LVL2", action='store_true')
     parser.add_argument("--find-orphans", help="find LVL3 which are not in tree of LSD in quarter", action='store_true')
+    parser.add_argument("--dry-run", help="do not perform remote updates, only simulate", action='store_true')
+    parser.add_argument("--verbose", help="enable verbose/debug logging", action='store_true')
     args = parser.parse_args()
 
     valid_year(args.year)
     valid_quarter(args.quarter)
     
-    jira = JIRA(server=JIRA_SERVER, token_auth=JIRA_TOKEN)
-    lsd = LSD(jira, args.year, args.quarter, args.squad)
+    # logging configuration
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+    logger = logging.getLogger(__name__)
+
+    try:
+        jira = JIRA(server=JIRA_SERVER, token_auth=JIRA_TOKEN)
+    except Exception as e:
+        logger.error('Failed to create JIRA client: %s', e)
+        sys.exit(1)
+
+    lsd = LSD(jira, args.year, args.quarter, args.squad, dry_run=args.dry_run)
 
     lsd.to_ascii()    
     if args.set_quarter:

@@ -8,7 +8,10 @@ Provides:
 - PCIEpic and PCITaskStory wrappers extending OvhIssue with LVL3-specific logic
 """
 from colorama import Fore, Style
+import logging
 from lsd.base import OvhIssue
+
+logger = logging.getLogger(__name__)
 
 def str_strike(s_string):
     """Return a string wrapped with ANSI strike-through codes."""
@@ -29,7 +32,7 @@ class PCIEpic(OvhIssue):
     Extends OvhIssue with methods to fetch components, child items and
     small helpers used by LSD flows.
     """
-    def __init__(self, jira, key):
+    def __init__(self, jira, issue=None, key=None):
         """
         Initialize a PCIEpic and populate fields and childs list.
 
@@ -37,10 +40,10 @@ class PCIEpic(OvhIssue):
             jira: Jira client instance.
             key: Issue key of the Epic.
         """
-        OvhIssue.__init__(self, jira, key=key)
-        assert self.type == 'Epic'
-        self.get_fields()
-        self.get_childs()
+    OvhIssue.__init__(self, jira, issue=issue, key=key)
+    assert self.type == 'Epic'
+    self.get_fields()
+    self.get_childs()
 
     def __str__(self):
         """
@@ -91,11 +94,11 @@ class PCITaskStory(OvhIssue):
 
     Adds access to the (custom) estimate field and a display string.
     """
-    def __init__(self, jira, key):
+    def __init__(self, jira, issue=None, key=None):
         """
         Initialize a task/story and set its estimate (customfield_10006).
         """
-        OvhIssue.__init__(self, jira, key=key)
+        OvhIssue.__init__(self, jira, issue=issue, key=key)
         assert self.type in ['Task' , 'Story']
         _fields = self._issue.fields
         if _fields.customfield_10006:
