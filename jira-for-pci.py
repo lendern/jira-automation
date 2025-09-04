@@ -3,8 +3,12 @@ import argparse
 import logging
 import re
 from jira import JIRA
-from lsd import LSD
 from lsd.logging_utils import setup_logging
+from adapter import JiraRepository
+from lsd.tree_builder import build_lsd_tree
+from lsd.presenter import to_ascii
+from lsd import lvl3
+from lsd import services
 
 JIRA_SERVER = 'https://jira.ovhcloud.tools'
 JIRA_TOKEN = os.environ['JIRA_TOKEN']
@@ -54,23 +58,24 @@ if __name__ == '__main__':
     
     # default: build tree and print
     jira = JIRA(server=JIRA_SERVER, token_auth=JIRA_TOKEN)
-    lsd = LSD(jira, args.year, args.quarter, args.squad, args.skip_closed)
-    lsd.to_ascii()
+    repo = JiraRepository(jira)
+    tree = build_lsd_tree(repo, args.year, args.quarter, args.squad, args.skip_closed)
+    print(to_ascii(tree))
 
     # actions tweak
     if args.skip_closed:
         logger.warning('--skip-closed flag is set, skipping any other commands')
     elif args.action:
         if args.action == "set-quarter":
-            lsd.propagate_sprint()
+            services.propagate_sprint(tree, args.year, args.quarter, repo)
         elif args.action == "set-prio":
-            lsd.propagate_prio()
+            services.propagate_priority(tree, repo)
         elif args.action == "find-orphans":
-            lsd.find_orphans()
+            services.find_orphans(tree, args.year, args.quarter, args.squad, repo)
         elif args.action == "aggregate-points":
             if args.pci_epic:
                 valid_pci_issue(args.pci_epic)
-                lsd.aggregate_points(args.pci_epic)
+                services.aggregate_points(tree, args.pci_epic, repo)
             else:
                 logger.error('--pci-epic is MD with --actions=aggregate-points, exit')
                 exit(0)
