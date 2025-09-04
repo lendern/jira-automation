@@ -1,9 +1,12 @@
+import logging
 from nutree import Tree
 from colorama import Fore, Style
 from .lvl2 import LVL2feature, LVL2epic, str_lvl2_sprint_label
 from .lvl3 import PCIEpic, PCITaskStory, str_lvl3_sprint_label
 
 VALID_SPRINTS = ['SD-FY26-Q1', 'SD-FY26-Q2', 'SD-FY26-Q3', 'SD-FY26-Q4']
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------
 # JQL query 
@@ -19,7 +22,7 @@ def _jql_build(s_root, l_filter_terms=[], b_not_closed = True):
     if b_not_closed:
         l_terms += JQL_NOT_CLOSED
     s_jql = ' AND '.join(l_terms) + ' ORDER BY priority DESC'
-    print(f'Running SQL: "{s_jql}"')
+    logger.debug('Running JQL: %s', s_jql)
     return s_jql
 
 def _jql_query_lvl2_keys(jira, l_filter_terms=[]):
@@ -58,7 +61,7 @@ def init_ovhissue(jira, issue, project: str, type: str):
         elif type in ('Story', 'Task'):
             ovhissue = PCITaskStory(jira, issue) 
     if not ovhissue:
-        print(f'({project},{type}) is not supported, skip')
+        logger.warning('(%s,%s) is not supported, skip', project, type)
     return ovhissue
 
 def reccursive_build_tree(jira, ancestor, key, s_squad, b_skip_done):
@@ -78,7 +81,7 @@ def reccursive_build_tree(jira, ancestor, key, s_squad, b_skip_done):
 
 def is_sprint_valid(s_sprint):
     if s_sprint not in VALID_SPRINTS:
-        print(f'Expected sprint in *{VALID_SPRINTS}*, received *{s_sprint}*')
+        logger.error('Expected sprint in %s, received %s', VALID_SPRINTS, s_sprint)
         return False
     else:
         return True
@@ -93,9 +96,9 @@ class LSD:
         self.sprint = str_lvl2_sprint_label(s_year, s_quarter)
         self.s_squad = s_squad
         self.b_skip_done = b_skip_done
-        print('==============================================================================')
-        print(f'Running LSD tree onto sprint = {self.sprint}')
-        print('==============================================================================')
+        logger.info('==============================================================================')
+        logger.info('Running LSD tree onto sprint = %s', self.sprint)
+        logger.info('==============================================================================')
         self.tree = Tree(LSD.PROJECT)
         self.build_tree()
 
@@ -111,11 +114,11 @@ class LSD:
         return self.tree.format()
 
     def to_ascii(self):
-        print(self)
+        logger.info("\n%s", self)
     
     def propagate_sprint(self):
         s_label = str_lvl3_sprint_label(self.year, self.quarter)
-        print(f'Will know propagate label {s_label} to tree for {self.s_squad}')
+        logger.info('Propagate label %s to tree for %s', s_label, self.s_squad)
         for node in self.tree:
             # Depth-first, pre-order by default
             ovhissue = node.data
@@ -124,23 +127,23 @@ class LSD:
                     ovhissue.add_label(s_label)
 
     def propagate_prio(self):
-        print(f'Now, Will propagate priority, from Epics to Stories')
+        logger.info('Propagate priority from Epics to Stories')
         # get all Epic keys
         for node in self.tree:
             ovhissue = node.data
             if ovhissue.project == 'PCI' and ovhissue.type == "Epic":
                 # on cherche les Epics LVL3
                 new_prio = ovhissue.prio
-                print(f'prio *{new_prio}* for Epic *{str(ovhissue)}*')
+                logger.info('Epic %s priority is %s', str(ovhissue), new_prio)
                 for task_or_story_node in node:
                     # on cherche les Epics LVL3
                     if not task_or_story_node.data.is_closed():
                         _issue = self._jira.issue(task_or_story_node.data.key)
                         if task_or_story_node.data.prio != new_prio:
                             _issue.update(fields={"priority": {"name": new_prio}})
-                            print(f'(+) set prio *{new_prio}* for *{task_or_story_node.data.type}* *{str(task_or_story_node.data)}*')
+                            logger.info('(+) set prio %s for %s %s', new_prio, task_or_story_node.data.type, str(task_or_story_node.data))
                         else:
-                            print(f'(-) unchanged prio for *{task_or_story_node.data.type}* *{str(task_or_story_node.data)}*')                        
+                            logger.debug('(-) unchanged prio for %s %s', task_or_story_node.data.type, str(task_or_story_node.data))
         
     def find_orphans(self):
         # 1. find all LVL3 Issues that belongs to LSD
@@ -157,8 +160,8 @@ class LSD:
             if key not in l_issues_in_lsd:
                 issue = self._jira.issue(key)
                 proj, type = issue_to_project_type(issue)
-                ovhissue = init_ovhissue(self._jira, issue, proj, type)                
-                print(f'(-) orphan {label} found: *{str(ovhissue)}*')                        
+                ovhissue = init_ovhissue(self._jira, issue, proj, type)
+                logger.warning('(-) orphan %s found: %s', label, str(ovhissue))
 
     def aggregate_points(self, s_epic_key):
         # 1. verify if LVL3 Epic is present in tree
@@ -167,12 +170,12 @@ class LSD:
         for node0 in self.tree:
             if node0.data.project == 'PCI' and node0.data.type == "Epic" and node0.data.key == s_epic_key:
                 ovhepic = node0.data
-                print(f'(d) Epic found {str(ovhepic)}')
+                logger.info('(d) Epic found %s', str(ovhepic))
                 for node1 in node0:
                     ovhtask = node1.data
                     i_story_points += ovhtask.story_points
                 ovhepic.set_story_points(i_story_points)
                 break 
         if not ovhepic:
-            print(f'Issue not found, exit')
+            logger.error('Issue not found, exit')
             exit(0)

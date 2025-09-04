@@ -1,8 +1,10 @@
 import os
+import argparse
+import logging
+import re
 from jira import JIRA
 from lsd import LSD
-import argparse
-import re
+from lsd.logging_utils import setup_logging
 
 JIRA_SERVER = 'https://jira.ovhcloud.tools'
 JIRA_TOKEN = os.environ['JIRA_TOKEN']
@@ -12,20 +14,23 @@ SUPPORTED_QUARTER = ['1', '2', '3', '4']
 LVL2_to_exclude = []
 
 
+logger = logging.getLogger(__name__)
+
+
 def valid_year(s_year):
     if s_year not in SUPPORTED_FY:
-        print(f'Request FY is {s_year}, expecting {SUPPORTED_FY}, exit')
+        logger.error('Request FY is %s, expecting %s, exit', s_year, SUPPORTED_FY)
         exit(0)
 
 def valid_quarter(s_quarter):
     if s_quarter not in SUPPORTED_QUARTER:
-        print(f'Request Quarter is {s_quarter}, expecting {SUPPORTED_QUARTER}, exit')
+        logger.error('Request Quarter is %s, expecting %s, exit', s_quarter, SUPPORTED_QUARTER)
         exit(0)
 
 def valid_pci_issue(s_pci_epic):
     if not re.search(r"^PCI-\d{4,5}$", s_pci_epic):
-        print(f'PCI Epic is {s_pci_epic}, expecting PCI-xxxxx, exit')
-        exit(0)        
+        logger.error('PCI Epic is %s, expecting PCI-xxxxx, exit', s_pci_epic)
+        exit(0)
     
 
 if __name__ == '__main__':
@@ -38,6 +43,12 @@ if __name__ == '__main__':
     parser.add_argument("--pci-epic", help="PCI epics to apply dedicated action", type=str)
     args = parser.parse_args()
 
+    # Configure logging: fixed handlers
+    # - Console level: INFO
+    # - File level: DEBUG at ./out/logs.txt
+    setup_logging(log_file='./out/logs.txt')
+    logger.debug("CLI parsed args: %s", args)
+
     valid_year(args.year)
     valid_quarter(args.quarter)
     
@@ -48,7 +59,7 @@ if __name__ == '__main__':
 
     # actions tweak
     if args.skip_closed:
-        print('(w) --skip-closed flag is set, skipping any other commands')
+        logger.warning('--skip-closed flag is set, skipping any other commands')
     elif args.action:
         if args.action == "set-quarter":
             lsd.propagate_sprint()
@@ -61,8 +72,7 @@ if __name__ == '__main__':
                 valid_pci_issue(args.pci_epic)
                 lsd.aggregate_points(args.pci_epic)
             else:
-                print(f'--pci-epic is MD with --actions=aggregate-points, exit')
+                logger.error('--pci-epic is MD with --actions=aggregate-points, exit')
                 exit(0)
     else:
-        print('No action defined, exit')                
-
+        logger.info('No action defined, exit')

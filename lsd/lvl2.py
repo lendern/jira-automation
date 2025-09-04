@@ -1,3 +1,4 @@
+import logging
 from colorama import Fore, Style
 from lsd.base import OvhIssue
 

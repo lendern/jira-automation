@@ -1,3 +1,9 @@
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+
 class OvhIssue:
     # Common to all types (Epics, Story, etc)
     def __init__(self, jira, issue=None, key=None):
@@ -30,9 +36,9 @@ class OvhIssue:
     
     def add_label(self, s_new_label):
         if s_new_label not in self.labels:
-            print(f'(+) add label *{s_new_label}* to *{str(self)}*')
+            logger.info('(+) add label %s to %s', s_new_label, str(self))
             self.labels.append(s_new_label)
             _issue = self._jira.issue(self.key)
             _issue.update(fields={"labels": self.labels})
         else:
-            print(f'(-) skip, label *{s_new_label}* already in *{str(self)}*')
+            logger.debug('(-) skip, label %s already present on %s', s_new_label, str(self))

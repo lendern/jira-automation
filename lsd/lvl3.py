@@ -1,4 +1,5 @@
 
+import logging
 from colorama import Fore, Style
 from lsd.base import OvhIssue
 
@@ -43,18 +44,18 @@ class PCIissue(OvhIssue):
 
     def set_story_points(self, i_sp):
         if not isinstance(i_sp, int):
-            print('(e) expecting int for story points, exit')
+            logging.getLogger(__name__).error('expecting int for story points, exit')
             exit(0)
         if i_sp < 0:
-            print('(e) story points >= 0, exit')
+            logging.getLogger(__name__).error('story points >= 0, exit')
             exit(0)
         # Dont modify if issue is closed
         if self.is_closed():
-            print(f'(i) story points unchanged for {str(self)}')
+            logging.getLogger(__name__).info('(i) story points unchanged for %s', str(self))
         else:
             self._issue.update(fields={"customfield_10006": i_sp})
             self.story_points = i_sp
-            print(f'(i) story points={i_sp} for {str(self)}')
+            logging.getLogger(__name__).info('(i) story points=%s for %s', i_sp, str(self))
 
 
 class PCIEpic(PCIissue):
