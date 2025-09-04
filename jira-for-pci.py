@@ -1,6 +1,6 @@
 import os
 from jira import JIRA
-from lib import LSD
+from lsd import LSD
 import argparse
 import re
 
