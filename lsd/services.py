@@ -30,10 +30,17 @@ def propagate_sprint(tree: Tree, year: str, quarter: str, repo: Repository) -> N
 
 
 def propagate_priority(tree: Tree, repo: Repository) -> None:
-    """Propagate priority from PCI Epics down to their direct Stories/Tasks."""
+    """Propagate Epic priority to related Tasks/Stories.
+
+    - Direct children of each PCI Epic (via Epic Link) are updated.
+    - Additionally, Tasks/Stories that share the same LVL2 Feature parent
+      (siblings of the Epic under the feature) are also updated.
+    """
     logger.info('Propagate priority from Epics to Tasks/Stories')
     for node in tree:
         data = node.data
+
+        # Case 1: direct children of Epics
         if isinstance(data, PCIEpic):
             new_prio = data.prio
             logger.info('Epic %s priority is %s', data.key, new_prio)
@@ -48,6 +55,26 @@ def propagate_priority(tree: Tree, repo: Repository) -> None:
                             logger.error('Failed to set priority for %s: %s', c.key, e)
                     else:
                         logger.debug('(-) unchanged prio for %s %s', c.type, c.key)
+
+        # Case 2: siblings under the same LVL2 Feature
+        if isinstance(data, LVL2Feature):
+            # Find the Epic child (if any) to source the priority
+            epic_prio = None
+            for child in node:
+                cd = child.data
+                if isinstance(cd, PCIEpic):
+                    epic_prio = cd.prio
+                    break
+            if epic_prio:
+                for child in node:
+                    cd = child.data
+                    if isinstance(cd, PCITaskStory) and not cd.is_closed():
+                        if cd.prio != epic_prio:
+                            try:
+                                update_field(repo, cd.key, "priority", epic_prio)
+                                logger.info('(+) set prio %s for sibling %s %s', epic_prio, cd.type, cd.key)
+                            except Exception as e:
+                                logger.error('Failed to set priority for %s: %s', cd.key, e)
 
 
 def find_orphans(tree: Tree, year: str, quarter: str, squad: str, repo: Repository) -> List[IssueBase]:

@@ -92,6 +92,15 @@ class JiraRepository:
         return out
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> None:
+        # NOTE about field transforms (in_transform / out_transform):
+        # - The logical field layer (lsd/fields.py) defines CustomFieldSpec with optional
+        #   `in_transform` and `out_transform` to bridge Jira shapes <-> Python values.
+        # - Callers typically use update_field(repo, issue_key, name, value[, merge]). That
+        #   function applies `out_transform(value)` when present so that this method receives
+        #   the final Jira payload (e.g., {"priority": {"name": "High"}} or
+        #   {"customfield_16708": {"value": "UnitX"}}). Therefore, this method should not
+        #   re-transform values; it only computes idempotent updates by comparing with current
+        #   Jira state and sends the minimal diff.
         if not fields:
             return
         # Read current for idempotence

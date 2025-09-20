@@ -5,7 +5,7 @@ import logging
 import re
 from jira import JIRA
 from lsd.logging_utils import setup_logging
-from adapter import JiraRepository
+from adapter import JiraRepository, SimRepository
 from lsd.tree_builder import build_lsd_tree
 from lsd.presenter import to_ascii
 from lsd import services
@@ -42,6 +42,7 @@ if __name__ == '__main__':
     parser.add_argument("quarter", help="quarter formated as '1'", type=str)
     parser.add_argument("squad", help="Squad to work on", type=str, choices=['Network'])
     parser.add_argument("--action", help="...", type=str, choices=["set-quarter", "set-prio", "find-orphans", "aggregate-points"])
+    parser.add_argument("--update", help="Apply updates to Jira (default is simulation)", action='store_true')
     parser.add_argument("--skip-closed", help="skip and LVL3 closed (only compatible with view)", action='store_true')
     parser.add_argument("--pci-epic", help="PCI epics to apply dedicated action", type=str)
     args = parser.parse_args()
@@ -65,7 +66,13 @@ if __name__ == '__main__':
     
     # default: build tree and print
     jira = JIRA(server=JIRA_SERVER, token_auth=JIRA_TOKEN)
-    repo = JiraRepository(jira)
+    base_repo = JiraRepository(jira)
+    if args.update:
+        repo = base_repo
+        logger.info('Update mode enabled: changes will be applied to Jira')
+    else:
+        repo = SimRepository(base_repo)
+        logger.info('Simulation mode (default): no changes will be applied. Use --update to apply.')
     tree = build_lsd_tree(repo, args.year, args.quarter, args.squad, args.skip_closed)
     print(to_ascii(tree))
 

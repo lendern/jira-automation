@@ -19,15 +19,26 @@ class IssueBase(FieldAccessMixin):
     def __str__(self) -> str:
         return " | ".join([self.key, self.type, self.status, self.title])
 
+    def __hash__(self) -> int:
+        # Hash by stable identity (issue key) so domain objects are usable
+        # with libraries that require hashing (e.g., tree nodes de-dup).
+        return hash(self.key)
+
 
 @dataclass
 class LVL2Epic(IssueBase):
     blfnt: str = "na"
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 @dataclass
 class LVL2Feature(IssueBase):
     pu: str = "na"
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 @dataclass
@@ -41,12 +52,17 @@ class PCIssue(IssueBase):
     def is_network(self) -> bool:
         return "Network" in self.components
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 @dataclass
 class PCIEpic(PCIssue):
-    pass
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 @dataclass
 class PCITaskStory(PCIssue):
-    pass
+    def __hash__(self) -> int:
+        return hash(self.key)

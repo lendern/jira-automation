@@ -119,6 +119,26 @@ class FieldAccessMixin:
 
 
 def _coerce_in(ftype: FieldType, raw: Any) -> Any:
+    """Convertit une valeur brute en valeur Python selon le `FieldType`.
+
+    Cette fonction est utilisée côté lecture lorsqu'aucune `in_transform` n'est
+    définie dans la spécification du champ. Elle applique des conversions
+    tolérantes avec des valeurs de repli pour éviter les exceptions.
+
+    Paramètres:
+    - ftype: type logique du champ (INT, FLOAT, STR, LIST_STR, LABELS).
+    - raw: valeur brute renvoyée par l'API Jira (ou `None`).
+
+    Retour:
+    - INT: `int(raw)`; `0` si `raw` est `None` ou convertible invalide.
+    - FLOAT: `float(raw)`; `0.0` si `raw` est `None` ou convertible invalide.
+    - STR: `str(raw)`; chaîne vide si `raw` est `None`.
+    - LIST_STR / LABELS:
+        - `[]` si `raw` est falsy (`None`, `[]`, etc.).
+        - si `raw` est une liste, chaque élément est converti en `str`.
+        - sinon, promotion en liste à un élément `[str(raw)]`.
+    - Autres types: valeur `raw` inchangée.
+    """
     if ftype == FieldType.INT:
         try:
             return int(raw) if raw is not None else 0

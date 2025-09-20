@@ -58,3 +58,29 @@ def build_lsd_tree(repo: Repository, year: str, quarter: str, squad: str, skip_c
     for key in repo.find_lvl2_new_features(sprint, squad):
         _recurse_add(repo, tree, key, squad, skip_closed)
     return tree
+
+
+def iter_lvl2_keys(tree: Tree):
+    """Iterate over keys of LVL2 items present in the tree.
+
+    Usage:
+        for key in iter_lvl2_keys(tree):
+            ...
+    """
+    for node in tree:
+        data = getattr(node, 'data', None)
+        if getattr(data, 'project', None) == 'LVL2':
+            yield getattr(data, 'key', '')
+
+
+def iter_pci_epic_keys(tree: Tree):
+    """Iterate over keys of PCI Epics present in the tree.
+
+    Usage:
+        for key in iter_pci_epic_keys(tree):
+            ...
+    """
+    for node in tree:
+        data = getattr(node, 'data', None)
+        if isinstance(data, PCIEpic):
+            yield getattr(data, 'key', '')
