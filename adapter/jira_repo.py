@@ -2,12 +2,13 @@ import logging
 from typing import List, Any
 
 from jira import JIRA
+from lsd.status import jql_not_closed
 
 
 logger = logging.getLogger(__name__)
 
 
-JQL_NOT_CLOSED = 'status NOT in (Done, Canceled, Cancelled, Closed)'
+JQL_NOT_CLOSED = jql_not_closed()
 
 # Base roots
 JQL_LVL2_FOR_PCI_ROOT = 'project = LVL2 AND type = "New Feature"'

@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import List, Optional
-
-
-CLOSED_STATUSES = ("Done", "To Prod", "Cancelled", "Canceled", "Closed")
+from .status import CLOSED_STATUSES
 
 
 @dataclass
@@ -51,4 +49,3 @@ class PCIEpic(PCIssue):
 @dataclass
 class PCITaskStory(PCIssue):
     pass
-
