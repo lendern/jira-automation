@@ -124,3 +124,40 @@ class JiraRepository:
             return
         logger.info("set story points for %s: %s", key, points)
         issue.update(fields={"customfield_10006": points})
+
+    # -----------------
+    # Generic field access
+    # -----------------
+    def get_fields(self, key: str, fields: List[str]) -> dict[str, Any]:
+        fields_param = ",".join(sorted(set(fields))) if fields else None
+        issue = self._jira.issue(key, fields=fields_param)
+        out: dict[str, Any] = {}
+        for f in fields or []:
+            out[f] = getattr(issue.fields, f, None)
+        return out
+
+    def update_fields(self, key: str, fields: dict[str, Any]) -> None:
+        if not fields:
+            return
+        # Read current for idempotence
+        cur = self.get_fields(key, list(fields.keys()))
+        payload: dict[str, Any] = {}
+        for k, v in fields.items():
+            cv = cur.get(k)
+            if isinstance(v, list):
+                # normalize lists of strings (labels, etc.)
+                try:
+                    nv = sorted(set(str(x) for x in v))
+                    cvn = sorted(set(str(x) for x in (cv or [])))
+                except Exception:
+                    nv = v
+                    cvn = cv
+                if nv != cvn:
+                    payload[k] = nv
+            else:
+                if v != cv:
+                    payload[k] = v
+        if payload:
+            logger.info("update fields for %s: %s", key, ", ".join(payload.keys()))
+            issue = self._jira.issue(key)
+            issue.update(fields=payload)

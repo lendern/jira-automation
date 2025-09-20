@@ -29,3 +29,10 @@ class Repository(Protocol):
 
     def set_story_points(self, key: str, points: int) -> None:
         ...
+
+    # Generic field access (productizing customfields)
+    def get_fields(self, key: str, fields: List[str]) -> dict[str, Any]:
+        ...
+
+    def update_fields(self, key: str, fields: dict[str, Any]) -> None:
+        ...

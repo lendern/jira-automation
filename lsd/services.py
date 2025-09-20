@@ -7,6 +7,7 @@ from nutree import Tree
 from .mappers import to_domain
 from .models import PCIssue, PCITaskStory, PCIEpic, IssueBase
 from .labels import str_lvl3_sprint_label
+from .fields import update_field
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ def propagate_sprint(tree: Tree, year: str, quarter: str, repo: Repository) -> N
         data = node.data
         if isinstance(data, PCIssue) and not data.is_closed() and data.type in ("Task", "Story", "Epic"):
             try:
-                repo.add_label(data.key, label)
+                update_field(repo, data.key, "labels", [label], merge=True)
             except Exception as e:
                 logger.error('Failed to set label for %s: %s', data.key, e)
 
@@ -88,7 +89,7 @@ def aggregate_points(tree: Tree, epic_key: str, repo: Repository) -> int:
                 if isinstance(cd, PCIssue):
                     total += int(cd.story_points or 0)
             try:
-                repo.set_story_points(epic_key, total)
+                update_field(repo, epic_key, "story_points", total)
                 logger.info('(i) story points=%s for %s', total, epic_key)
             except Exception as e:
                 logger.error('Failed to set story points for %s: %s', epic_key, e)
