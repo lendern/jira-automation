@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import logging
 import re
@@ -10,7 +11,7 @@ from lsd.presenter import to_ascii
 from lsd import services
 
 JIRA_SERVER = 'https://jira.ovhcloud.tools'
-JIRA_TOKEN = os.environ['JIRA_TOKEN']
+JIRA_TOKEN = os.environ.get('JIRA_TOKEN')
 SUPPORTED_FY = ['26']
 SUPPORTED_QUARTER = ['1', '2', '3', '4']
 
@@ -22,17 +23,17 @@ logger = logging.getLogger(__name__)
 def valid_year(s_year):
     if s_year not in SUPPORTED_FY:
         logger.error('Request FY is %s, expecting %s, exit', s_year, SUPPORTED_FY)
-        exit(0)
+        sys.exit(1)
 
 def valid_quarter(s_quarter):
     if s_quarter not in SUPPORTED_QUARTER:
         logger.error('Request Quarter is %s, expecting %s, exit', s_quarter, SUPPORTED_QUARTER)
-        exit(0)
+        sys.exit(1)
 
 def valid_pci_issue(s_pci_epic):
     if not re.search(r"^PCI-\d{4,5}$", s_pci_epic):
         logger.error('PCI Epic is %s, expecting PCI-xxxxx, exit', s_pci_epic)
-        exit(0)
+        sys.exit(1)
     
 
 if __name__ == '__main__':
@@ -50,6 +51,14 @@ if __name__ == '__main__':
     # - File level: DEBUG at ./out/logs.txt
     setup_logging(log_file='./out/logs.txt')
     logger.debug("CLI parsed args: %s", args)
+
+    # Validate environment
+    if not JIRA_TOKEN:
+        logger.error('Environment variable JIRA_TOKEN is required but missing')
+        sys.exit(1)
+    if not JIRA_SERVER:
+        logger.error('Environment variable JIRA_SERVER is empty')
+        sys.exit(1)
 
     valid_year(args.year)
     valid_quarter(args.quarter)
@@ -76,6 +85,6 @@ if __name__ == '__main__':
                 services.aggregate_points(tree, args.pci_epic, repo)
             else:
                 logger.error('--pci-epic is MD with --actions=aggregate-points, exit')
-                exit(0)
+                sys.exit(1)
     else:
         logger.info('No action defined, exit')
