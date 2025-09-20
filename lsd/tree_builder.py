@@ -6,7 +6,7 @@ from nutree import Tree
 from adapter.ports import Repository
 from .mappers import to_domain
 from .models import PCIEpic, PCIssue
-from .lvl2 import str_lvl2_sprint_label
+from .labels import str_lvl2_sprint_label
 
 
 logger = logging.getLogger(__name__)
@@ -59,4 +59,3 @@ def build_lsd_tree(repo: Repository, year: str, quarter: str, squad: str, skip_c
     for key in repo.find_lvl2_new_features(sprint, squad):
         _recurse_add(repo, tree, key, squad, skip_closed)
     return tree
-

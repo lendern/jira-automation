@@ -7,7 +7,6 @@ from lsd.logging_utils import setup_logging
 from adapter import JiraRepository
 from lsd.tree_builder import build_lsd_tree
 from lsd.presenter import to_ascii
-from lsd import lvl3
 from lsd import services
 
 JIRA_SERVER = 'https://jira.ovhcloud.tools'

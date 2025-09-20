@@ -42,3 +42,4 @@ class OvhIssue:
             _issue.update(fields={"labels": self.labels})
         else:
             logger.debug('(-) skip, label %s already present on %s', s_new_label, str(self))
+

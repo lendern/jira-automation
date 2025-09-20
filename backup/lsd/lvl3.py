@@ -92,3 +92,4 @@ class PCITaskStory(PCIissue):
     def __init__(self, jira, key):
         PCIissue.__init__(self, jira, key=key)
         assert self.type in ['Task' , 'Story']
+

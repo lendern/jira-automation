@@ -6,7 +6,7 @@ from nutree import Tree
 
 from .mappers import to_domain
 from .models import PCIssue, PCITaskStory, PCIEpic, IssueBase
-from .lvl3 import str_lvl3_sprint_label
+from .labels import str_lvl3_sprint_label
 
 
 logger = logging.getLogger(__name__)
@@ -99,4 +99,3 @@ def aggregate_points(tree: Tree, epic_key: str, repo: Repository) -> int:
                 logger.error('Failed to set story points for %s: %s', epic_key, e)
             return total
     raise KeyError(f'Epic {epic_key} not found in tree')
-
