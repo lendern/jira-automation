@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
 from .status import CLOSED_STATUSES
+from .fields import FieldAccessMixin
 
 
 @dataclass
-class IssueBase:
+class IssueBase(FieldAccessMixin):
     key: str
     project: str
     type: str

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 
 class FieldType(str, Enum):
@@ -18,6 +18,10 @@ class CustomFieldSpec:
     name: str
     jira_id: str  # e.g., "customfield_10006" or "labels"
     ftype: FieldType
+    readable: bool = True
+    writable: bool = True
+    in_transform: Optional[Callable[[Any], Any]] = None
+    out_transform: Optional[Callable[[Any], Any]] = None
 
 
 # Initial registry: extend as needed
@@ -30,7 +34,71 @@ FIELD_REGISTRY: Dict[str, CustomFieldSpec] = {
     "labels": CustomFieldSpec(
         name="labels", jira_id="labels", ftype=FieldType.LABELS
     ),
+    # Priority by name
+    "priority": CustomFieldSpec(
+        name="priority",
+        jira_id="priority",
+        ftype=FieldType.STR,
+        in_transform=lambda raw: getattr(raw, "name", None),
+        out_transform=lambda v: {"name": v} if v is not None else None,
+    ),
+    # Components (list of names)
+    "components": CustomFieldSpec(
+        name="components",
+        jira_id="components",
+        ftype=FieldType.LIST_STR,
+        in_transform=lambda raw: [getattr(c, "name", "") for c in (raw or [])],
+        out_transform=lambda vs: [{"name": str(v)} for v in (vs or [])],
+    ),
+    # Summary (title)
+    "summary": CustomFieldSpec(
+        name="summary", jira_id="summary", ftype=FieldType.STR
+    ),
+    # Status (read-only via fields; transitions are separate API)
+    "status": CustomFieldSpec(
+        name="status",
+        jira_id="status",
+        ftype=FieldType.STR,
+        readable=True,
+        writable=False,
+        in_transform=lambda raw: getattr(raw, "name", None),
+    ),
+    # Project key (read-only)
+    "project": CustomFieldSpec(
+        name="project",
+        jira_id="project",
+        ftype=FieldType.STR,
+        readable=True,
+        writable=False,
+        in_transform=lambda raw: getattr(raw, "key", None),
+    ),
+    # Issue type name (read-only)
+    "issue_type": CustomFieldSpec(
+        name="issue_type",
+        jira_id="issuetype",
+        ftype=FieldType.STR,
+        readable=True,
+        writable=False,
+        in_transform=lambda raw: getattr(raw, "name", None),
+    ),
 }
+
+
+class FieldAccessMixin:
+    """Lightweight mixin to access logical fields on an Issue via a Repository.
+
+    Usage:
+        issue.read_myfield(repo, "priority")
+        issue.update_myfield(repo, "labels", ["FY26Q2"], merge=True)
+    """
+
+    key: str  # expected attribute on host class
+
+    def read_myfield(self, repo, name: str) -> Any:
+        return read_field(repo, self.key, name)
+
+    def update_myfield(self, repo, name: str, value: Any, *, merge: bool = False) -> None:
+        update_field(repo, self.key, name, value, merge=merge)
 
 
 def _coerce_in(ftype: FieldType, raw: Any) -> Any:
@@ -69,6 +137,8 @@ def read_field(repo, issue_key: str, name: str) -> Any:
     if not spec:
         raise KeyError(f"Unknown field name: {name}")
     raw = repo.get_fields(issue_key, [spec.jira_id]).get(spec.jira_id)
+    if spec.in_transform:
+        return spec.in_transform(raw)
     return _coerce_in(spec.ftype, raw)
 
 
@@ -83,18 +153,23 @@ def update_field(repo, issue_key: str, name: str, value: Any, *, merge: bool = F
     spec = FIELD_REGISTRY.get(name)
     if not spec:
         raise KeyError(f"Unknown field name: {name}")
+    if not spec.writable:
+        raise ValueError(f"Field '{name}' is not writable")
 
     if spec.ftype in (FieldType.LIST_STR, FieldType.LABELS):
         new_list = _normalize_list_str(value if isinstance(value, list) else [value])
-        if merge:
-            current = read_field(repo, issue_key, name) or []
-            merged = _normalize_list_str(list(current) + list(new_list))
-            repo.update_fields(issue_key, {spec.jira_id: merged})
-        else:
-            repo.update_fields(issue_key, {spec.jira_id: new_list})
+        current = read_field(repo, issue_key, name) or []
+        desired = _normalize_list_str(list(current) + list(new_list)) if merge else new_list
+        if desired == _normalize_list_str(current):
+            return
+        out_val = spec.out_transform(desired) if spec.out_transform else desired
+        repo.update_fields(issue_key, {spec.jira_id: out_val})
         return
 
     # Scalars
-    desired = _coerce_in(spec.ftype, value)
-    repo.update_fields(issue_key, {spec.jira_id: desired})
-
+    desired_typed = _coerce_in(spec.ftype, value) if not spec.in_transform else value
+    current = read_field(repo, issue_key, name)
+    if current == desired_typed:
+        return
+    out_val = spec.out_transform(desired_typed) if spec.out_transform else desired_typed
+    repo.update_fields(issue_key, {spec.jira_id: out_val})

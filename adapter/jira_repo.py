@@ -77,53 +77,8 @@ class JiraRepository:
         return [i.key for i in issues]
 
     # -----------------
-    # Mutations
+    # Mutations are handled via update_fields
     # -----------------
-    def set_labels(self, key: str, labels: List[str]) -> None:
-        issue = self._jira.issue(key)
-        current = list(getattr(issue.fields, 'labels', []) or [])
-        new_labels = sorted(set(labels))
-        if sorted(set(current)) == new_labels:
-            logger.debug("labels unchanged for %s", key)
-            return
-        logger.info("update labels for %s: %s", key, new_labels)
-        issue.update(fields={"labels": new_labels})
-
-    def add_label(self, key: str, label: str) -> None:
-        """Ensure a single label exists on the issue (idempotent)."""
-        issue = self._jira.issue(key)
-        current = list(getattr(issue.fields, 'labels', []) or [])
-        if label in current:
-            logger.debug("label '%s' already present on %s", label, key)
-            return
-        new_labels = sorted(set(current + [label]))
-        logger.info("add label for %s: %s", key, label)
-        issue.update(fields={"labels": new_labels})
-
-    def set_priority(self, key: str, name: str) -> None:
-        issue = self._jira.issue(key)
-        current = getattr(issue.fields, 'priority', None)
-        current_name = getattr(current, 'name', None)
-        if current_name == name:
-            logger.debug("priority unchanged for %s (%s)", key, name)
-            return
-        logger.info("set priority for %s: %s", key, name)
-        issue.update(fields={"priority": {"name": name}})
-
-    def set_story_points(self, key: str, points: int) -> None:
-        if not isinstance(points, int) or points < 0:
-            raise ValueError("points must be a non-negative int")
-        issue = self._jira.issue(key)
-        current = getattr(issue.fields, 'customfield_10006', None)
-        try:
-            current_val = int(current) if current is not None else None
-        except Exception:
-            current_val = None
-        if current_val == points:
-            logger.debug("story points unchanged for %s (%s)", key, points)
-            return
-        logger.info("set story points for %s: %s", key, points)
-        issue.update(fields={"customfield_10006": points})
 
     # -----------------
     # Generic field access
@@ -144,19 +99,31 @@ class JiraRepository:
         payload: dict[str, Any] = {}
         for k, v in fields.items():
             cv = cur.get(k)
+            # List comparison (labels/components)
             if isinstance(v, list):
-                # normalize lists of strings (labels, etc.)
-                try:
-                    nv = sorted(set(str(x) for x in v))
-                    cvn = sorted(set(str(x) for x in (cv or [])))
-                except Exception:
-                    nv = v
-                    cvn = cv
-                if nv != cvn:
-                    payload[k] = nv
-            else:
-                if v != cv:
+                # New names
+                if v and isinstance(v[0], dict):
+                    nv_names = sorted(set(str(d.get('name', '')) for d in v))
+                else:
+                    nv_names = sorted(set(str(x) for x in v))
+                # Current names
+                if isinstance(cv, list):
+                    cv_names = sorted(set(str(getattr(x, 'name', x)) for x in cv))
+                else:
+                    cv_names = []
+                if nv_names != cv_names:
                     payload[k] = v
+                continue
+            # Dict comparison for objects with 'name' (e.g., priority)
+            if isinstance(v, dict) and 'name' in v:
+                current_name = getattr(cv, 'name', None)
+                if v.get('name') != current_name:
+                    payload[k] = v
+                continue
+            # Fallback direct compare
+            if v != cv:
+                payload[k] = v
+
         if payload:
             logger.info("update fields for %s: %s", key, ", ".join(payload.keys()))
             issue = self._jira.issue(key)

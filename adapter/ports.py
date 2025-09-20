@@ -17,19 +17,6 @@ class Repository(Protocol):
     def find_pci_keys_with_label_and_squad(self, label: str, squad: str) -> List[str]:
         ...
 
-    def set_labels(self, key: str, labels: List[str]) -> None:
-        ...
-
-    def add_label(self, key: str, label: str) -> None:
-        """Ensure a label is present on the issue (idempotent)."""
-        ...
-
-    def set_priority(self, key: str, name: str) -> None:
-        ...
-
-    def set_story_points(self, key: str, points: int) -> None:
-        ...
-
     # Generic field access (productizing customfields)
     def get_fields(self, key: str, fields: List[str]) -> dict[str, Any]:
         ...

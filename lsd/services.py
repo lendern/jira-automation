@@ -42,7 +42,7 @@ def propagate_priority(tree: Tree, repo: Repository) -> None:
                 if isinstance(c, PCITaskStory) and not c.is_closed():
                     if c.prio != new_prio:
                         try:
-                            repo.set_priority(c.key, new_prio)
+                            update_field(repo, c.key, "priority", new_prio)
                             logger.info('(+) set prio %s for %s %s', new_prio, c.type, c.key)
                         except Exception as e:
                             logger.error('Failed to set priority for %s: %s', c.key, e)
