@@ -81,6 +81,23 @@ FIELD_REGISTRY: Dict[str, CustomFieldSpec] = {
         writable=False,
         in_transform=lambda raw: getattr(raw, "name", None),
     ),
+    # LVL2 specific custom fields
+    # PU (Unit) select field on LVL2 Features
+    "pu": CustomFieldSpec(
+        name="pu",
+        jira_id="customfield_16708",
+        ftype=FieldType.STR,
+        in_transform=lambda raw: getattr(raw, "value", None),
+        out_transform=lambda v: {"value": v} if v is not None else None,
+    ),
+    # BLFNT select field on LVL2 Epics
+    "blfnt": CustomFieldSpec(
+        name="blfnt",
+        jira_id="customfield_10530",
+        ftype=FieldType.STR,
+        in_transform=lambda raw: getattr(raw, "value", None),
+        out_transform=lambda v: {"value": v} if v is not None else None,
+    ),
 }
 
 

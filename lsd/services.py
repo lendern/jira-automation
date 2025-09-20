@@ -5,9 +5,9 @@ from adapter.ports import Repository
 from nutree import Tree
 
 from .mappers import to_domain
-from .models import PCIssue, PCITaskStory, PCIEpic, IssueBase
+from .models import PCIssue, PCITaskStory, PCIEpic, IssueBase, LVL2Feature, LVL2Epic
 from .labels import str_lvl3_sprint_label
-from .fields import update_field
+from .fields import update_field, read_field
 
 
 logger = logging.getLogger(__name__)
@@ -95,3 +95,69 @@ def aggregate_points(tree: Tree, epic_key: str, repo: Repository) -> int:
                 logger.error('Failed to set story points for %s: %s', epic_key, e)
             return total
     raise KeyError(f'Epic {epic_key} not found in tree')
+
+
+def update_lvl2_pu(tree: Tree, feature_key: str, value: str, repo: Repository) -> None:
+    """Update the LVL2 Feature 'pu' field (customfield_16708) using the field abstraction.
+
+    If the feature is present in the tree, logs its presence; otherwise still performs the update.
+    """
+    found = False
+    for node in tree:
+        d = node.data
+        if isinstance(d, LVL2Feature) and d.key == feature_key:
+            found = True
+            break
+    try:
+        update_field(repo, feature_key, "pu", value)
+        if found:
+            logger.info("(i) Updated LVL2 Feature %s pu=%s", feature_key, value)
+        else:
+            logger.info("(i) Updated LVL2 Feature %s pu=%s (not in current tree)", feature_key, value)
+    except Exception as e:
+        logger.error("Failed to update 'pu' for %s: %s", feature_key, e)
+
+
+def update_lvl2_blfnt(tree: Tree, epic_key: str, value: str, repo: Repository) -> None:
+    """Update the LVL2 Epic 'blfnt' field (customfield_10530) using the field abstraction.
+
+    If the epic is present in the tree, logs its presence; otherwise still performs the update.
+    """
+    found = False
+    for node in tree:
+        d = node.data
+        if isinstance(d, LVL2Epic) and d.key == epic_key:
+            found = True
+            break
+    try:
+        update_field(repo, epic_key, "blfnt", value)
+        if found:
+            logger.info("(i) Updated LVL2 Epic %s blfnt=%s", epic_key, value)
+        else:
+            logger.info("(i) Updated LVL2 Epic %s blfnt=%s (not in current tree)", epic_key, value)
+    except Exception as e:
+        logger.error("Failed to update 'blfnt' for %s: %s", epic_key, e)
+
+
+def read_issue_field(repo: Repository, issue_key: str, name: str):
+    """Convenience wrapper to read a logical field using the abstraction.
+
+    Example: read_issue_field(repo, 'LVL2-123', 'pu')
+    """
+    try:
+        return read_field(repo, issue_key, name)
+    except Exception as e:
+        logger.error("Failed to read field '%s' for %s: %s", name, issue_key, e)
+        raise
+
+
+def update_issue_field(repo: Repository, issue_key: str, name: str, value, *, merge: bool = False) -> None:
+    """Convenience wrapper to update a logical field using the abstraction.
+
+    Example: update_issue_field(repo, 'PCI-123', 'labels', ['FY26Q2'], merge=True)
+    """
+    try:
+        update_field(repo, issue_key, name, value, merge=merge)
+    except Exception as e:
+        logger.error("Failed to update field '%s' for %s: %s", name, issue_key, e)
+        raise
