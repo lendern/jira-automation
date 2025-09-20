@@ -23,12 +23,7 @@ def propagate_sprint(tree: Tree, year: str, quarter: str, repo: Repository) -> N
         data = node.data
         if isinstance(data, PCIssue) and not data.is_closed() and data.type in ("Task", "Story", "Epic"):
             try:
-                # Fetch current labels from repo to avoid duplicates based on stale state
-                raw = repo.get_issue(data.key)
-                cur = list(getattr(raw.fields, 'labels', []) or [])
-                if label not in cur:
-                    cur.append(label)
-                repo.set_labels(data.key, cur)
+                repo.add_label(data.key, label)
             except Exception as e:
                 logger.error('Failed to set label for %s: %s', data.key, e)
 

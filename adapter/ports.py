@@ -20,9 +20,12 @@ class Repository(Protocol):
     def set_labels(self, key: str, labels: List[str]) -> None:
         ...
 
+    def add_label(self, key: str, label: str) -> None:
+        """Ensure a label is present on the issue (idempotent)."""
+        ...
+
     def set_priority(self, key: str, name: str) -> None:
         ...
 
     def set_story_points(self, key: str, points: int) -> None:
         ...
-

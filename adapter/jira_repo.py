@@ -88,6 +88,17 @@ class JiraRepository:
         logger.info("update labels for %s: %s", key, new_labels)
         issue.update(fields={"labels": new_labels})
 
+    def add_label(self, key: str, label: str) -> None:
+        """Ensure a single label exists on the issue (idempotent)."""
+        issue = self._jira.issue(key)
+        current = list(getattr(issue.fields, 'labels', []) or [])
+        if label in current:
+            logger.debug("label '%s' already present on %s", label, key)
+            return
+        new_labels = sorted(set(current + [label]))
+        logger.info("add label for %s: %s", key, label)
+        issue.update(fields={"labels": new_labels})
+
     def set_priority(self, key: str, name: str) -> None:
         issue = self._jira.issue(key)
         current = getattr(issue.fields, 'priority', None)
@@ -112,4 +123,3 @@ class JiraRepository:
             return
         logger.info("set story points for %s: %s", key, points)
         issue.update(fields={"customfield_10006": points})
-
