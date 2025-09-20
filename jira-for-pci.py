@@ -14,7 +14,6 @@ JIRA_TOKEN = os.environ['JIRA_TOKEN']
 SUPPORTED_FY = ['26']
 SUPPORTED_QUARTER = ['1', '2', '3', '4']
 
-LVL2_to_exclude = []
 
 
 logger = logging.getLogger(__name__)

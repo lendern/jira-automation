@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional, Tuple
+from typing import Tuple
 
 from graphviz import Digraph
 
@@ -130,4 +130,3 @@ def render_graph(tree, *, out_dir: str = './out', filename: str = 'lsd-tree', fm
             logger.warning('Failed to open viewer: %s', e)
 
     return saved
-
