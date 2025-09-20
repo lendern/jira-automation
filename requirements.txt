@@ -1,5 +1,5 @@
 jira
 nutree
-pydot
-graphviz
-colorama
+# Optional features:
+# - graphviz (for lsd.presenter.render_graph)
+# - colorama (legacy under backup/)

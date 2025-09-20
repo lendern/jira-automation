@@ -2,8 +2,6 @@ import logging
 import os
 from typing import Tuple
 
-from graphviz import Digraph
-
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +78,13 @@ def render_graph(tree, *, out_dir: str = './out', filename: str = 'lsd-tree', fm
     - Layout: top-to-bottom tree.
     - Returns the path (without extension) to the generated file from graphviz.
     """
+    # Lazy import so graphviz is optional unless rendering
+    try:
+        from graphviz import Digraph  # type: ignore
+    except Exception as e:
+        logger.error('Graphviz package is required for render_graph: %s', e)
+        raise
+
     os.makedirs(out_dir, exist_ok=True)
 
     dot = Digraph('LSD', format=fmt)
