@@ -1,40 +1,33 @@
 # Setup & Configuration
 
-Important environment variables
-- JIRA_BASE_URL=https://your-domain.atlassian.net
-- JIRA_API_TOKEN=xxxxxxxx
-- JIRA_USER_EMAIL=you@domain.tld
-- NODE_ENV=development|production
-- DATABASE_URL=postgres://user:pass@host:port/db (if used)
+Environment variables
+- JIRA_SERVER=https://jira.example.com  (optionnel; défaut: https://jira.ovhcloud.tools)
+- JIRA_TOKEN=xxxxxxxx                   (obligatoire)
 
-Example .env file
-Create a `.env` file in the project root:
+Example `.env`
 ```
-JIRA_BASE_URL=https://...
-JIRA_API_TOKEN=...
-JIRA_USER_EMAIL=...
-NODE_ENV=development
+JIRA_SERVER=https://...
+JIRA_TOKEN=...
+```
+Astuce: utilisez `python-dotenv` en local si vous souhaitez charger automatiquement `.env`.
+
+Install
+```
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+# Optionnel pour rendu graphique
+pip install graphviz
 ```
 
-Docker (simple example)
-- Build: docker build -t jira-automation .
-- Run:
-  docker run -e JIRA_API_TOKEN=... -e JIRA_BASE_URL=... jira-automation
+Run
+```
+python jira-for-pci.py 26 1 Network --action set-quarter
+```
 
-Secrets and keys
-- Store secrets in a vault or in CI secrets (GitHub Actions secrets, etc.)
-- Do not commit `.env` or any secrets to the repository.
-
-Database
-- If the project uses a relational DB, run migrations before starting:
-  - npm run migrate or the equivalent migration command for your stack.
-- Ensure DATABASE_URL is set.
-
-Tests
-- Run unit tests: npm test or python -m pytest depending on project test setup.
-- Integration tests may need real or mocked credentials.
+Security
+- Ne pas committer de secrets.
+- Utiliser des tokens à privilèges minimaux.
 
 Troubleshooting
-- Check logs with npm run start or docker logs
-- Authentication errors -> verify JIRA_API_TOKEN and JIRA_USER_EMAIL
-- Rate limiting (429) -> implement retry/backoff
+- Logs: l’application écrit `./out/logs.txt` (niveau DEBUG) et la console (INFO).
+- Auth: vérifier `JIRA_TOKEN`. 401/403 indique souvent un token invalide ou des droits insuffisants.

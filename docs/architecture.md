@@ -1,31 +1,30 @@
 # Architecture — jira-automation
 
 Overview
-- Main components:
-  - Jira API client: a small wrapper around Jira REST endpoints.
-  - Rule engine: evaluates configured automation rules and schedules actions.
-  - Orchestrator: receives events (webhooks, scheduler, CLI) and triggers the engine.
-  - Storage: persists rules, state and logs (could be DB, filesystem or other).
-  - Optional UI/CLI: to manage rules and view logs.
+- CLI orchestrator: `jira-for-pci.py` parse les arguments, initialise le client Jira, construit l’arbre LSD et déclenche les actions.
+- Domain layer: `lsd.models` (dataclasses) représente les issues LVL2/PCI et la logique utilitaire (ex: fermé ou non).
+- Mapping: `lsd.mappers` convertit un `jira.Issue` en modèles de domaine sans appels réseau.
+- Tree building: `lsd.tree_builder` construit une arborescence `nutree.Tree` LVL2 → PCI Epic → Tasks/Stories.
+- Services (use-cases): `lsd.services` implémente les actions (propagation de labels/priorité, orphelins, agrégation de points).
+- Adapters: `adapter.jira_repo.JiraRepository` implémente `adapter.ports.Repository` pour isoler les requêtes JQL et mutations.
+- Presentation: `lsd.presenter` fournit l’affichage ASCII et un rendu graphique optionnel (Graphviz).
+- Utilities: `lsd.logging_utils` (logging), `lsd.labels` (format des labels), `lsd.status` (statuts fermés + helper JQL).
 
-Data flow
-1. Event arrives (webhook, scheduled job or manual CLI invocation).
-2. Orchestrator normalizes the event into an internal representation.
-3. Rule engine selects applicable rules based on event/context.
-4. Actions are executed via adapters (Jira, notifications, etc.).
-5. Results and logs are persisted and optionally notified.
+Data Flow
+1. CLI reçoit l’entrée (année, trimestre, squad, action).
+2. Construction de l’arbre: requêtes JQL via `JiraRepository`, mapping vers domain, assemblage via `tree_builder`.
+3. Affichage ASCII (par défaut) et/ou rendu graphique optionnel.
+4. Exécution d’une action via `lsd.services` (écritures Jira uniquement via l’adapter).
 
-Key design decisions
-- Separation of concerns: business logic (rules) is separate from adapters (Jira, DB)
-  to improve testability and extensibility.
-- Network resilience: use retries and exponential backoff for external calls.
-- Secrets management: environment variables and vaults are preferred — do not
-  commit secrets.
+Design Choices
+- Séparation nette domaine/adapters: logique testable sans réseau, appels Jira centralisés.
+- Idempotence côté adapter pour les mutations (ex: `add_label`).
+- Centralisation des constantes/formatage (statuts fermés, labels sprint).
 
 Extensibility
-- Add new adapters (e.g. Slack) by implementing the adapter interface.
-- Add rule validation as a plugin for CI to prevent invalid automations from being merged.
+- Ajouter un nouveau filtre de squad en étendant les requêtes dans `adapter/jira_repo.py`.
+- Ajouter une action en l’implémentant dans `lsd.services` (en s’appuyant sur `Repository`).
 
 Security
-- Never log secrets or tokens.
-- Use least-privilege credentials for Jira API tokens.
+- Ne jamais journaliser de secrets.
+- Utiliser un token à privilège minimal.

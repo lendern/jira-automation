@@ -1,34 +1,33 @@
 # Usage — Quick Guide
 
-Common commands
-- Development:
-  - npm run dev (if applicable)
-  - python jira-for-pci.py 26 1 Network --set-quarter
-- Build & start:
-  - npm run build
-  - npm start
+Prerequisites
+- Python 3.10+
+- Env vars: `JIRA_TOKEN` (obligatoire), `JIRA_SERVER` (optionnel, défaut: https://jira.ovhcloud.tools)
+- Dépendance optionnelle: `graphviz` (uniquement si vous rendez un graphe image)
 
-Testing
-- Unit tests:
-  - npm test or python -m pytest
-- Integration tests:
-  - npm run test:integration (may require real credentials or mocks)
+Installation
+- Créez un venv puis installez:
+  - pip install -r requirements.txt
+  - pip install graphviz  # seulement si vous utilisez le rendu graphique
 
-CLI examples (Python helper)
-- List rules (example CLI wrapper):
-  - npm run cli -- list-rules
-- Execute a rule manually:
-  - npm run cli -- run-rule --name="rule_name"
+Commandes courantes
+- Afficher l’arbre LSD pour FY26 Q1 (squad Network):
+  - python jira-for-pci.py 26 1 Network
+- Afficher en ignorant les issues PCI fermées:
+  - python jira-for-pci.py 26 1 Network --skip-closed
+- Propager le label de quarter (FY26Q1) sur les issues PCI non fermées:
+  - python jira-for-pci.py 26 1 Network --action set-quarter
+- Propager la priorité des Epics vers leurs Stories/Tasks:
+  - python jira-for-pci.py 26 1 Network --action set-prio
+- Lister les orphelins (labellisés FY26Q1 mais non présents dans l’arbre):
+  - python jira-for-pci.py 26 1 Network --action find-orphans
+- Agréger les story points des enfants d’un Epic PCI et l’écrire sur l’Epic:
+  - python jira-for-pci.py 26 1 Network --action aggregate-points --pci-epic PCI-12345
 
-Webhooks
-- Expected endpoint: POST /webhook
-- Minimal payload: see tests in /tests or the integration specs
+Notes
+- `--skip-closed` désactive les actions d’écriture; utile pour l’inspection.
+- Le rendu image du graphe est disponible via `lsd.presenter.render_graph` si `graphviz` est installé.
 
-Best practices
-- Keep rules small and unit-testable.
-- Mock Jira calls in CI to avoid hitting real APIs.
-
-Common troubleshooting
-- 401 / 403: verify token and user email
-- 429: handle rate limits using backoff and retries
-- 5xx Jira: implement retry and alerting
+Troubleshooting
+- 401 / 403: vérifier `JIRA_TOKEN` et les permissions du compte.
+- 429: gérer le rate limit (relancer plus tard, backoff côté appelant si nécessaire).
