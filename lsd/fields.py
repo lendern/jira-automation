@@ -118,7 +118,7 @@ class FieldAccessMixin:
         update_field(repo, self.key, name, value, merge=merge)
 
 
-def _coerce_in(ftype: FieldType, raw: Any) -> Any:
+def _to_python_value(ftype: FieldType, raw: Any) -> Any:
     """Convertit une valeur brute en valeur Python selon le `FieldType`.
 
     Cette fonction est utilisée côté lecture lorsqu'aucune `in_transform` n'est
@@ -176,7 +176,7 @@ def read_field(repo, issue_key: str, name: str) -> Any:
     raw = repo.get_fields(issue_key, [spec.jira_id]).get(spec.jira_id)
     if spec.in_transform:
         return spec.in_transform(raw)
-    return _coerce_in(spec.ftype, raw)
+    return _to_python_value(spec.ftype, raw)
 
 
 def update_field(repo, issue_key: str, name: str, value: Any, *, merge: bool = False) -> None:
@@ -204,7 +204,7 @@ def update_field(repo, issue_key: str, name: str, value: Any, *, merge: bool = F
         return
 
     # Scalars
-    desired_typed = _coerce_in(spec.ftype, value) if not spec.in_transform else value
+    desired_typed = _to_python_value(spec.ftype, value) if not spec.in_transform else value
     current = read_field(repo, issue_key, name)
     if current == desired_typed:
         return
