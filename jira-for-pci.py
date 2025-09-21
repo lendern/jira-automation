@@ -6,7 +6,7 @@ import re
 from jira import JIRA
 from lsd.logging_utils import setup_logging
 from adapter import JiraRepository, SimRepository
-from lsd.tree_builder import build_lsd_tree
+from lsd.tree_builder import build_lsd_tree, iter_pci_epic_keys, iter_lvl2_keys
 from lsd.presenter import to_ascii
 from lsd import services
 
@@ -74,6 +74,12 @@ if __name__ == '__main__':
         repo = SimRepository(base_repo)
         logger.info('Simulation mode (default): no changes will be applied. Use --update to apply.')
     tree = build_lsd_tree(repo, args.year, args.quarter, args.squad, args.skip_closed)
+    # Debug: list LVL2 items discovered via iterator
+    try:
+        lvl2_keys = list(iter_lvl2_keys(tree))
+        logger.debug("LVL2 items in tree: %s", ", ".join(lvl2_keys) or "<none>")
+    except Exception as e:
+        logger.debug("Failed to iterate LVL2 keys: %s", e)
     print(to_ascii(tree))
 
     # actions tweak
@@ -89,6 +95,11 @@ if __name__ == '__main__':
         elif args.action == "aggregate-points":
             if args.pci_epic:
                 valid_pci_issue(args.pci_epic)
+                # Validate that the requested epic exists in the current tree
+                epic_keys = set(iter_pci_epic_keys(tree))
+                if args.pci_epic not in epic_keys:
+                    logger.error('PCI Epic %s not present in the current tree, exit', args.pci_epic)
+                    sys.exit(1)
                 services.aggregate_points(tree, args.pci_epic, repo)
             else:
                 logger.error('--pci-epic is MD with --actions=aggregate-points, exit')
